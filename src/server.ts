@@ -1,49 +1,39 @@
-import { config as dotenvConfig } from "dotenv"
-dotenvConfig()
-import express, { Express, NextFunction, Request, Response } from "express"
-import cors from "cors" // Import the CORS middleware
-import { handleError } from "./lib/utils"
-import { connectDB } from "./database/db"
-import userRoutes from "./routes/user.routes"
-import categoryRoutes from "./routes/category.routes"
-import expensesRoutes from "./routes/expense.routes"
-import statisticRoutes from "./routes/dashboard.routes"
+import express from "express";
+import path from "path";
+import { env, validateEnv } from "./config/env";
+import connectDB from "./config/db";
+import { applySecurityMiddleware } from "./middleware/security.middleware";
 
-connectDB()
-const app: Express = express()
-const port = process.env.PORT || 5000
+// Import routes
+import authRoutes from "./routes/auth.routes";
+import versionRoutes from "./routes/version.routes";
+import userRoutes from "./routes/user.routes";
+import wallpaperRoutes from "./routes/wallpaper.routes";
 
-app.use(
-  cors({
-    origin: "*", // Allow all origins
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    allowedHeaders: "Content-Type, Authorization"
-  })
-)
-// Set a higher limit for JSON payloads
-app.use(express.json({ limit: "50mb" }))
-// Set a higher limit for URL-encoded payloads
-app.use(express.urlencoded({ limit: "50mb", extended: true }))
+// Validate environment variables
+validateEnv();
 
-// Middleware to parse JSON request bodies
-app.use(express.json())
-app.get("/", (req: Request, res: Response) => {
-  res.send("Welcome to the Expense Tracker API")
-})
+// Connect to database
+connectDB();
 
-// Mount  routes
-app.use("/api/user",userRoutes)
-app.use("/api/category",categoryRoutes)
-app.use("/api/expense",expensesRoutes)
-app.use("/api/statistic",statisticRoutes)
+// Initialize express app
+const app = express();
 
-// Global error handler middleware
+// Apply security middleware
+applySecurityMiddleware(app);
 
-//@ts-ignore
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  return handleError(err, res) // Pass the error to the handleError function
-})
+// Serve static files from uploads directory
+app.get("/", (req, res) => res.send("API is running"));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`)
-})
+// Set up routes
+app.use("/api/auth", authRoutes);
+app.use("/api/versions", versionRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/wallpapers", wallpaperRoutes);
+
+// Start server
+const PORT = env.PORT || 5000;
+app.listen(PORT, () => {
+  console.log(`Server running in ${env.NODE_ENV} mode on port ${PORT}`);
+});

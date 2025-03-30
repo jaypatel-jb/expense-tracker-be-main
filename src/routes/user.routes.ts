@@ -1,11 +1,37 @@
-import { RequestHandler, Router } from "express"
-import userController from "../controllers/user.controller"
-import { validateWithZod } from "../middlewares/validateWithZod"
-import { ParamsSchema, registerSchema, UpdateUserSchema } from "../schemas/user.schema"
-const router = Router()
-router.post("/", validateWithZod({ body: registerSchema }), userController.createUser as RequestHandler)
-router.get("/", userController.getUsers)
-router.put("/:id", validateWithZod({ body: UpdateUserSchema, params: ParamsSchema }), userController.updateUser)
-router.delete("/:id", validateWithZod({ params: ParamsSchema }), userController.deleteUser)
-router.get("/:id", validateWithZod({ params: ParamsSchema }), userController.getUser)
-export default router
+import express from "express";
+import {
+  createUser,
+  getUsers,
+  getUserById,
+  updateUser,
+  deleteUser,
+  createAdmin,
+} from "../controllers/user.controller";
+import { protect, admin } from "../middleware/auth.middleware";
+import { validateRequest, schemas } from "../middleware/validation.middleware";
+
+const router = express.Router();
+
+// User routes
+router
+  .route("/")
+  .post(protect, admin, validateRequest(schemas.createUser), createUser)
+  .get(protect, admin, getUsers);
+
+// Admin creation route
+router
+  .route("/admin")
+  .post(protect, admin, validateRequest(schemas.createAdmin), createAdmin);
+
+// Initial admin creation route (no auth required)
+router
+  .route("/init-admin")
+  .post(validateRequest(schemas.createAdmin), createAdmin);
+
+router
+  .route("/:id")
+  .get(protect, admin, getUserById)
+  .put(protect, admin, validateRequest(schemas.updateUser), updateUser)
+  .delete(protect, admin, deleteUser);
+
+export default router;
